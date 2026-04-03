@@ -1,0 +1,83 @@
+{
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "Inventory items including phones and accessories.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Product name" },
+        "category": { "type": "string", "enum": ["Phone", "Accessory", "Part", "Service"], "description": "Product category" },
+        "price": { "type": "number", "description": "Selling price" },
+        "cost": { "type": "number", "description": "Cost price" },
+        "stock": { "type": "integer", "description": "Current stock level" },
+        "sku": { "type": "string", "description": "Stock Keeping Unit" },
+        "brand": { "type": "string", "description": "Brand name" },
+        "model": { "type": "string", "description": "Model name" }
+      },
+      "required": ["name", "category", "price", "stock"]
+    },
+    "Repair": {
+      "title": "Repair",
+      "description": "Repair service tickets.",
+      "type": "object",
+      "properties": {
+        "customerName": { "type": "string", "description": "Customer name" },
+        "customerPhone": { "type": "string", "description": "Customer phone number" },
+        "deviceModel": { "type": "string", "description": "Device model" },
+        "issue": { "type": "string", "description": "Problem description" },
+        "status": { "type": "string", "enum": ["Pending", "In Progress", "Completed", "Delivered", "Cancelled"], "description": "Repair status" },
+        "estimatedCost": { "type": "number", "description": "Estimated cost" },
+        "finalCost": { "type": "number", "description": "Final cost" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Ticket creation time" },
+        "completedAt": { "type": "string", "format": "date-time", "description": "Completion time" },
+        "notes": { "type": "string", "description": "Internal notes" }
+      },
+      "required": ["customerName", "customerPhone", "deviceModel", "issue", "status"]
+    },
+    "Sale": {
+      "title": "Sale",
+      "description": "Transaction records.",
+      "type": "object",
+      "properties": {
+        "items": { "type": "array", "items": { "type": "object" }, "description": "List of sold items" },
+        "total": { "type": "number", "description": "Total amount" },
+        "paymentMethod": { "type": "string", "enum": ["Cash", "Card", "Transfer"], "description": "Payment method" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Sale time" },
+        "customerName": { "type": "string", "description": "Customer name (optional)" }
+      },
+      "required": ["items", "total", "paymentMethod", "createdAt"]
+    },
+    "Customer": {
+      "title": "Customer",
+      "description": "Customer records.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Customer name" },
+        "phone": { "type": "string", "description": "Phone number" },
+        "email": { "type": "string", "description": "Email address" },
+        "address": { "type": "string", "description": "Physical address" }
+      },
+      "required": ["name", "phone"]
+    },
+    "Expense": {
+      "title": "Expense",
+      "description": "Business expense records.",
+      "type": "object",
+      "properties": {
+        "description": { "type": "string", "description": "Expense description" },
+        "amount": { "type": "number", "description": "Expense amount" },
+        "category": { "type": "string", "enum": ["Rent", "Utilities", "Salaries", "Supplies", "Marketing", "Other"], "description": "Expense category" },
+        "date": { "type": "string", "format": "date-time", "description": "Expense date" },
+        "notes": { "type": "string", "description": "Additional notes" }
+      },
+      "required": ["description", "amount", "category", "date"]
+    }
+  },
+  "firestore": {
+    "/products": { "schema": "Product", "description": "Inventory items" },
+    "/repairs": { "schema": "Repair", "description": "Repair tickets" },
+    "/sales": { "schema": "Sale", "description": "Transaction records" },
+    "/customers": { "schema": "Customer", "description": "Customer records" },
+    "/expenses": { "schema": "Expense", "description": "Business expense records" }
+  }
+}
