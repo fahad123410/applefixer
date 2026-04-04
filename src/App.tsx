@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, FormEvent } from 'react';
 import { Routes, Route, Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -18,9 +18,23 @@ import {
   Clock,
   CheckCircle2,
   AlertCircle,
-  ChevronRight
+  ChevronRight,
+  Mail,
+  Lock,
+  UserPlus,
+  LogIn
 } from 'lucide-react';
-import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, User } from 'firebase/auth';
+import { 
+  onAuthStateChanged, 
+  signInWithPopup, 
+  GoogleAuthProvider, 
+  signOut, 
+  User,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  updateProfile
+} from 'firebase/auth';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import { cn } from './lib/utils';
 
@@ -113,12 +127,12 @@ function Sidebar({ user }: { user: User }) {
           <div className="pt-8 border-t border-slate-100">
             <div className="flex items-center gap-3 mb-6 p-2 bg-slate-50 rounded-2xl">
               <img 
-                src={user.photoURL || `https://ui-avatars.com/api/?name=${user.displayName}&background=0e8de9&color=fff`} 
+                src={user.photoURL || `https://ui-avatars.com/api/?name=${user.displayName || user.email}&background=0e8de9&color=fff`} 
                 alt={user.displayName || 'User'} 
                 className="w-10 h-10 rounded-xl border-2 border-white shadow-sm"
               />
               <div className="overflow-hidden">
-                <p className="text-sm font-bold text-slate-900 truncate">{user.displayName}</p>
+                <p className="text-sm font-bold text-slate-900 truncate">{user.displayName || user.email?.split('@')[0]}</p>
                 <p className="text-[10px] text-slate-400 truncate uppercase font-bold tracking-wider">Administrator</p>
               </div>
             </div>
@@ -139,6 +153,11 @@ function Sidebar({ user }: { user: User }) {
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [displayName, setDisplayName] = useState('');
+  const [error, setError] = useState<string | null>(null);
   const location = useLocation();
 
   useEffect(() => {
@@ -149,12 +168,49 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  const handleLogin = async () => {
+  const createUserProfile = async (user: User, name?: string) => {
+    const userRef = doc(db, 'users', user.uid);
+    const userSnap = await getDoc(userRef);
+    
+    if (!userSnap.exists()) {
+      await setDoc(userRef, {
+        displayName: name || user.displayName || user.email?.split('@')[0],
+        email: user.email,
+        photoURL: user.photoURL,
+        role: 'user', // Default role
+        createdAt: new Date().toISOString()
+      });
+    }
+  };
+
+  const handleGoogleLogin = async () => {
     const provider = new GoogleAuthProvider();
     try {
-      await signInWithPopup(auth, provider);
-    } catch (error) {
+      const result = await signInWithPopup(auth, provider);
+      await createUserProfile(result.user);
+    } catch (error: any) {
+      setError(error.message);
       console.error("Login failed:", error);
+    }
+  };
+
+  const handleEmailAuth = async (e: FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    try {
+      if (isSignUp) {
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        if (displayName) {
+          await updateProfile(userCredential.user, { displayName });
+        }
+        await createUserProfile(userCredential.user, displayName);
+      } else {
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        await createUserProfile(userCredential.user);
+      }
+    } catch (error: any) {
+      setError(error.message);
+      console.error("Auth failed:", error);
     }
   };
 
@@ -178,18 +234,92 @@ export default function App() {
           animate={{ opacity: 1, y: 0 }}
           className="max-w-md w-full bg-white rounded-[32px] shadow-2xl p-10 text-center card-shadow"
         >
-          <div className="inline-flex p-5 bg-brand-50 rounded-[24px] mb-8">
-            <Smartphone className="text-brand-600" size={48} />
+          <div className="inline-flex p-5 bg-brand-50 rounded-[24px] mb-6">
+            <Smartphone className="text-brand-600" size={40} />
           </div>
-          <h1 className="text-4xl font-bold text-slate-900 mb-3 tracking-tight">AppleFixer</h1>
-          <p className="text-slate-500 mb-10 text-lg leading-relaxed">Complete management system for phone shops and repair centers.</p>
+          <h1 className="text-3xl font-bold text-slate-900 mb-2 tracking-tight">AppleFixer</h1>
+          <p className="text-slate-500 mb-8 text-sm leading-relaxed">Complete management system for phone shops and repair centers.</p>
+          
+          <form onSubmit={handleEmailAuth} className="space-y-4 text-left mb-6">
+            {isSignUp && (
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Full Name</label>
+                <div className="relative">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                  <input 
+                    type="text" 
+                    placeholder="John Doe"
+                    className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-brand-500/20 transition-all text-sm font-medium"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                  />
+                </div>
+              </div>
+            )}
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Email Address</label>
+              <div className="relative">
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                <input 
+                  required
+                  type="email" 
+                  placeholder="name@company.com"
+                  className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-brand-500/20 transition-all text-sm font-medium"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Password</label>
+              <div className="relative">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                <input 
+                  required
+                  type="password" 
+                  placeholder="••••••••"
+                  className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-brand-500/20 transition-all text-sm font-medium"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {error && (
+              <p className="text-xs font-bold text-rose-500 text-center px-2">{error}</p>
+            )}
+
+            <button
+              type="submit"
+              className="w-full flex items-center justify-center gap-3 bg-brand-600 text-white py-4 rounded-2xl font-bold text-sm hover:bg-brand-700 transition-all shadow-lg shadow-brand-100 active:scale-[0.98]"
+            >
+              {isSignUp ? <UserPlus size={18} /> : <LogIn size={18} />}
+              {isSignUp ? 'Create Account' : 'Sign In'}
+            </button>
+          </form>
+
+          <div className="relative mb-6">
+            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-100"></div></div>
+            <div className="relative flex justify-center text-xs uppercase"><span className="bg-white px-4 text-slate-400 font-bold tracking-widest">Or continue with</span></div>
+          </div>
+
           <button
-            onClick={handleLogin}
-            className="w-full flex items-center justify-center gap-4 bg-slate-900 text-white py-4.5 rounded-2xl font-bold text-lg hover:bg-slate-800 transition-all shadow-xl hover:shadow-2xl active:scale-[0.98]"
+            onClick={handleGoogleLogin}
+            className="w-full flex items-center justify-center gap-4 bg-white border border-slate-100 text-slate-700 py-4 rounded-2xl font-bold text-sm hover:bg-slate-50 transition-all active:scale-[0.98]"
           >
-            <img src="https://www.google.com/favicon.ico" className="w-6 h-6" alt="Google" />
-            Sign in with Google
+            <img src="https://www.google.com/favicon.ico" className="w-5 h-5" alt="Google" />
+            Google Account
           </button>
+
+          <p className="mt-8 text-sm text-slate-500">
+            {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
+            <button 
+              onClick={() => setIsSignUp(!isSignUp)}
+              className="text-brand-600 font-bold hover:underline"
+            >
+              {isSignUp ? 'Sign In' : 'Create one now'}
+            </button>
+          </p>
         </motion.div>
       </div>
     );
